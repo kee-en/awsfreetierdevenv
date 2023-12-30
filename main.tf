@@ -13,7 +13,7 @@ data "aws_ami" "ubuntu" {
 
 resource "aws_key_pair" "my_key_pair" {
   key_name   = "Mac-KP"
-  public_key = file("~/.ssh/id_rsa.pub")
+  public_key = file("~/.ssh/id_ed25519.pub")
 }
 
 resource "aws_security_group" "allow_ssh" {
@@ -43,8 +43,10 @@ resource "aws_instance" "development_instance" {
     Name = "DevelopmentInstance"
   }
 
-  key_name = aws_key_pair.my_key_pair.key_name
-  security_groups = [ aws_security_group.allow_ssh.id ]
+  key_name        = aws_key_pair.my_key_pair.key_name
+  vpc_security_group_ids = [aws_security_group.allow_ssh.id]
+
+  user_data = file("user_data.sh")
 }
 
 output "public_ip" {
