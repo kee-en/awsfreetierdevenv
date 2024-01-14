@@ -14,15 +14,26 @@ data "aws_ami" "ubuntu" {
 resource "aws_key_pair" "my_key_pair" {
   key_name   = "Mac-KP"
   public_key = file("~/.ssh/id_ed25519.pub")
+
+  tags = {
+    "Env" = "Development"
+  }
 }
 
 resource "aws_security_group" "allow_ssh" {
-  name        = "allow_ssh"
+  name        = "allow_ssh_postgres"
   description = "Allow inbound SSH traffic"
 
   ingress {
     from_port   = 22
     to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -33,6 +44,10 @@ resource "aws_security_group" "allow_ssh" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    "Env" = "Development"
+  }
 }
 
 resource "aws_instance" "development_instance" {
@@ -40,10 +55,11 @@ resource "aws_instance" "development_instance" {
   instance_type = "t2.micro"
 
   tags = {
-    Name = "DevelopmentInstance"
+    Name  = "DevelopmentInstance",
+    "Env" = "Development"
   }
 
-  key_name        = aws_key_pair.my_key_pair.key_name
+  key_name               = aws_key_pair.my_key_pair.key_name
   vpc_security_group_ids = [aws_security_group.allow_ssh.id]
 
   user_data = file("user_data.sh")
