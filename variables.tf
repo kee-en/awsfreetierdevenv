@@ -1,11 +1,18 @@
-variable "ami" {
-  description = "The ID of the AMI to use for the EC2 instance"
+# variable "ami" {
+#   description = "The ID of the AMI to use for the EC2 instance"
+# }
+
+# variable "instance_type" {
+#   description = "The type of EC2 instance"
+# }
+variable "resource_name" {
+  default = "dev-env"
 }
 
-variable "instance_type" {
-  description = "The type of EC2 instance"
+variable "env" {
+  default = "development"
 }
 
-variable "key_name" {
-  description = "The name of the key pair"
+variable "owner" {
+  default = "kiendolorfo@icloud.com"
 }

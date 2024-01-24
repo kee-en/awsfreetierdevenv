@@ -2,69 +2,70 @@ provider "aws" {
   region = "ap-southeast-1"
 }
 
-data "aws_ami" "ubuntu" {
+data "aws_ami" "ubuntu_lts" {
   most_recent = true
-  owners      = ["099720109477"]
+
+  # Filter by owner ID as Ubuntu AMIs may have conflicting names across regions
+  owners = ["099720109477"]
+
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+    values = ["ubuntu/images/hvm-ssd/ubuntu-*-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
   }
 }
 
-resource "aws_key_pair" "my_key_pair" {
-  key_name   = "Mac-KP"
-  public_key = file("~/.ssh/id_ed25519.pub")
+module "key_pair" {
+  source        = "./modules/key_pair"
+  resource_name = var.resource_name
+  tags          = { env = var.env, owner = var.owner }
+}
 
+module "security_group" {
+  source = "./modules/security_group"
+
+  resource_name = var.resource_name
   tags = {
-    "Env" = "Development"
+    env   = var.env,
+    owner = var.owner
   }
 }
 
-resource "aws_security_group" "allow_ssh" {
-  name        = "allow_ssh_postgres"
-  description = "Allow inbound SSH traffic"
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
+module "ec2_instance" {
+  source            = "./modules/ec2_instance"
+  resource_name     = var.resource_name
+  security_group_id = module.security_group.id
+  ami               = data.aws_ami.ubuntu_lts.id
+  instance_type     = "t2.micro"
+  key_name          = module.key_pair.name
   tags = {
-    "Env" = "Development"
+    env   = var.env,
+    owner = var.owner
   }
 }
 
-resource "aws_instance" "development_instance" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = "t2.micro"
+module "network_interface" {
+  source = "./modules/network_interface"
 
+  instance_id       = module.ec2_instance.id
+  subnet_id         = module.ec2_instance.subnet_id
+  security_group_id = module.security_group.id
   tags = {
-    Name  = "DevelopmentInstance",
-    "Env" = "Development"
+    env   = var.env,
+    owner = var.owner
   }
-
-  key_name               = aws_key_pair.my_key_pair.key_name
-  vpc_security_group_ids = [aws_security_group.allow_ssh.id]
-
-  user_data = file("user_data.sh")
 }
 
-output "public_ip" {
-  value = aws_instance.development_instance.public_ip
+module "elastic_ip" {
+  source = "./modules/elastic_ip"
+
+  instance_id = module.ec2_instance.id
+  tags = {
+    env   = var.env,
+    owner = var.owner
+  }
 }
